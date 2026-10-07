@@ -3,7 +3,9 @@ const ctx = canvas.getContext('2d');
 const scoreValue = document.getElementById('scoreValue');
 const enemyValue = document.getElementById('enemyValue');
 const hpValue = document.getElementById('hpValue');
+const hpBarFill = document.getElementById('hpBarFill');
 const opponentHpValue = document.getElementById('opponentHpValue');
+const opponentHpBarFill = document.getElementById('opponentHpBarFill');
 const xpValue = document.getElementById('xpValue');
 const skillValue = document.getElementById('skillValue');
 const itemValue = document.getElementById('itemValue');
@@ -16,6 +18,9 @@ const selectedSkillName = document.getElementById('selectedSkillName');
 const roomCodeInput = document.getElementById('roomCodeInput');
 const createRoomBtn = document.getElementById('createRoomBtn');
 const joinRoomBtn = document.getElementById('joinRoomBtn');
+const roomInvite = document.getElementById('roomInvite');
+const roomLinkInput = document.getElementById('roomLinkInput');
+const copyRoomLinkBtn = document.getElementById('copyRoomLinkBtn');
 const networkStatus = document.getElementById('networkStatus');
 
 const characterCatalog = {
@@ -55,24 +60,30 @@ const characterCatalog = {
 };
 
 const obstacleLayout = [
-  { x: 210, y: 180, w: 128, h: 32 },
-  { x: 630, y: 120, w: 132, h: 32 },
-  { x: 360, y: 302, w: 168, h: 34 },
-  { x: 122, y: 368, w: 90, h: 96 },
-  { x: 744, y: 354, w: 92, h: 102 },
-  { x: 500, y: 160, w: 38, h: 160 },
+  { x: 315, y: 270, w: 192, h: 48 },
+  { x: 945, y: 180, w: 198, h: 48 },
+  { x: 540, y: 453, w: 252, h: 51 },
+  { x: 183, y: 552, w: 135, h: 144 },
+  { x: 1116, y: 531, w: 138, h: 153 },
+  { x: 750, y: 240, w: 57, h: 240 },
+  { x: 1110, y: 90, w: 180, h: 42 },
+  { x: 420, y: 705, w: 165, h: 42 },
+  { x: 1320, y: 360, w: 45, h: 180 },
 ];
 
 const grassPatches = [
-  { x: 48, y: 62, w: 156, h: 112 },
-  { x: 390, y: 52, w: 178, h: 98 },
-  { x: 790, y: 210, w: 126, h: 118 },
-  { x: 270, y: 402, w: 180, h: 94 },
+  { x: 72, y: 93, w: 234, h: 168 },
+  { x: 585, y: 78, w: 267, h: 147 },
+  { x: 1185, y: 210, w: 189, h: 177 },
+  { x: 405, y: 603, w: 270, h: 141 },
+  { x: 960, y: 615, w: 240, h: 141 },
+  { x: 60, y: 270, w: 210, h: 100 },
+  { x: 840, y: 540, w: 180, h: 120 },
 ];
 
 const arena = {
-  width: canvas.width,
-  height: canvas.height,
+  width: 1440,
+  height: 810,
   score: 0,
   state: 'selection',
   spawnTimer: 0,
@@ -82,6 +93,7 @@ const arena = {
 };
 
 const pointer = { x: canvas.width / 2, y: canvas.height / 2, down: false };
+const camera = { x: 0, y: 0 };
 const keys = {};
 const lootTable = ['Medkit', 'Overcharge', 'Shield', 'Momentum'];
 const regularEnemyLimit = 12;
@@ -106,6 +118,12 @@ const network = {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function updateCamera() {
+  if (!player) return;
+  camera.x = clamp(player.x - canvas.width / 2, 0, arena.width - canvas.width);
+  camera.y = clamp(player.y - canvas.height / 2, 0, arena.height - canvas.height);
 }
 
 function rand(min, max) {
@@ -174,6 +192,7 @@ function applyNetworkState(message) {
     player.angle = self.angle;
     player.hp = self.hp;
     player.maxHp = self.maxHp;
+    player.hidden = self.hidden;
     player.barrierTimer = self.barrierTimer;
     player.skillCooldown = self.skillCooldown;
   }
@@ -191,7 +210,11 @@ function handleNetworkMessage(message) {
     network.code = message.code;
     network.playerId = message.playerId;
     roomCodeInput.value = message.code;
-    networkStatus.textContent = `部屋コード ${message.code} を相手に共有してください`;
+    const inviteUrl = new URL(window.location.href);
+    inviteUrl.searchParams.set('room', message.code);
+    roomLinkInput.value = inviteUrl.toString();
+    roomInvite.hidden = false;
+    networkStatus.textContent = '招待リンクをコピーして相手に共有してください';
   } else if (message.type === 'identity') {
     network.playerId = message.playerId;
   } else if (message.type === 'started') {
@@ -218,7 +241,10 @@ function sendNetworkInput(dt) {
 
   const horizontal = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
   const vertical = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
-  player.angle = Math.atan2(pointer.y - player.y, pointer.x - player.x);
+  player.angle = Math.atan2(
+    pointer.y + camera.y - player.y,
+    pointer.x + camera.x - player.x
+  );
   network.socket.send(JSON.stringify({
     type: 'input',
     x: horizontal,
@@ -309,17 +335,17 @@ function spawnEnemy() {
   let y = 0;
 
   if (edge === 0) {
-    x = rand(0, arena.width);
-    y = -30;
+    x = rand(camera.x, camera.x + canvas.width);
+    y = Math.max(-30, camera.y - 30);
   } else if (edge === 1) {
-    x = arena.width + 30;
-    y = rand(0, arena.height);
+    x = Math.min(arena.width + 30, camera.x + canvas.width + 30);
+    y = rand(camera.y, camera.y + canvas.height);
   } else if (edge === 2) {
-    x = rand(0, arena.width);
-    y = arena.height + 30;
+    x = rand(camera.x, camera.x + canvas.width);
+    y = Math.min(arena.height + 30, camera.y + canvas.height + 30);
   } else {
-    x = -30;
-    y = rand(0, arena.height);
+    x = Math.max(-30, camera.x - 30);
+    y = rand(camera.y, camera.y + canvas.height);
   }
 
   const runner = Math.random() < 0.72;
@@ -582,6 +608,16 @@ function updateHud() {
   hpValue.textContent = String(Math.max(0, Math.ceil(player ? player.hp : 0)));
   const opponent = network.players.find((participant) => participant.id !== network.playerId);
   opponentHpValue.textContent = network.started && opponent ? String(Math.ceil(opponent.hp)) : '-';
+  const playerHealth = player ? clamp((player.hp / player.maxHp) * 100, 0, 100) : 100;
+  const opponentHealth = network.started && opponent
+    ? clamp((opponent.hp / opponent.maxHp) * 100, 0, 100)
+    : 0;
+  hpBarFill.style.width = `${playerHealth}%`;
+  hpBarFill.classList.toggle('critical', playerHealth <= 30);
+  hpBarFill.parentElement.setAttribute('aria-valuenow', String(Math.round(playerHealth)));
+  opponentHpBarFill.style.width = `${opponentHealth}%`;
+  opponentHpBarFill.classList.toggle('critical', opponentHealth <= 30);
+  opponentHpBarFill.parentElement.setAttribute('aria-valuenow', String(Math.round(opponentHealth)));
   xpValue.textContent = `${player ? player.xp : 0}/${player ? player.xpGoal : 45}`;
 
   if (!player) {
@@ -662,8 +698,8 @@ function handleShooting(dt) {
     player.speedBoost = 1;
   }
 
-  const aimX = pointer.x;
-  const aimY = pointer.y;
+  const aimX = pointer.x + camera.x;
+  const aimY = pointer.y + camera.y;
   player.angle = Math.atan2(aimY - player.y, aimX - player.x);
 
   if (pointer.down && player.fireCooldown <= 0 && arena.state === 'playing') {
@@ -1041,16 +1077,20 @@ function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
   }
 
   function drawArena() {
-  ctx.clearRect(0, 0, arena.width, arena.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const shakeX = arena.shake > 0 ? rand(-arena.shake * 10, arena.shake * 10) : 0;
   const shakeY = arena.shake > 0 ? rand(-arena.shake * 10, arena.shake * 10) : 0;
   ctx.save();
   ctx.translate(shakeX, shakeY);
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
 
   const tiles = 24;
-  for (let x = 0; x < arena.width; x += tiles) {
-    for (let y = 0; y < arena.height; y += tiles) {
+  const firstTileX = Math.floor(camera.x / tiles) * tiles;
+  const firstTileY = Math.floor(camera.y / tiles) * tiles;
+  for (let x = firstTileX; x < camera.x + canvas.width + tiles; x += tiles) {
+    for (let y = firstTileY; y < camera.y + canvas.height + tiles; y += tiles) {
       ctx.fillStyle = (x + y) % (tiles * 2) === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)';
       ctx.fillRect(x, y, tiles, tiles);
     }
@@ -1094,7 +1134,7 @@ function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
   }
 
   for (const opponent of network.players) {
-    if (opponent.id !== network.playerId) drawPlayer(opponent);
+    if (opponent.id !== network.playerId && !opponent.hidden) drawPlayer(opponent);
   }
 
   const visibleBullets = network.started ? network.bullets : bullets;
@@ -1116,17 +1156,30 @@ function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
     ctx.globalAlpha = 1;
   }
 
-  const barWidth = 160;
-  const barX = 16;
-  const barY = arena.height - 24;
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(barX, barY, barWidth, 12);
-  ctx.fillStyle = '#66e3b6';
-  ctx.fillRect(barX, barY, (player.hp / player.maxHp) * barWidth, 12);
+  ctx.restore();
 
+  const barWidth = 180;
+  const barX = 16;
+  const barY = canvas.height - 30;
+  const barHeight = 18;
+  const healthRatio = clamp(player.hp / player.maxHp, 0, 1);
+  ctx.fillStyle = 'rgba(2, 8, 18, 0.92)';
+  ctx.fillRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(barX - 2, barY - 2, barWidth + 4, barHeight + 4);
+  ctx.fillStyle = healthRatio <= 0.3 ? '#ff5e70' : '#52e69a';
+  ctx.fillRect(barX, barY, barWidth * healthRatio, barHeight);
   ctx.fillStyle = '#ffffff';
-  ctx.font = '12px Segoe UI';
-  ctx.fillText('PLAYER', barX, barY - 8);
+  ctx.font = 'bold 12px Segoe UI';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#000000';
+  ctx.shadowBlur = 4;
+  ctx.fillText(`HP ${Math.ceil(player.hp)} / ${player.maxHp}`, barX + barWidth / 2, barY + barHeight / 2);
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
 
   ctx.restore();
 }
@@ -1136,7 +1189,9 @@ function gameLoop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000 || 0.016, 0.032);
   lastTime = timestamp;
 
+  updateCamera();
   updateGame(dt);
+  updateCamera();
   drawArena();
   requestAnimationFrame(gameLoop);
 }
@@ -1206,9 +1261,32 @@ joinRoomBtn.addEventListener('click', () => {
   connectToRoom('join');
 });
 
+copyRoomLinkBtn.addEventListener('click', async () => {
+  roomLinkInput.select();
+  roomLinkInput.setSelectionRange(0, roomLinkInput.value.length);
+  try {
+    await navigator.clipboard.writeText(roomLinkInput.value);
+    networkStatus.textContent = '招待リンクをコピーしました。相手に共有してください';
+  } catch (error) {
+    console.error('招待リンクをコピーできませんでした', error);
+    networkStatus.textContent = '自動コピーできませんでした。選択したリンクを Ctrl+C でコピーしてください';
+  }
+});
+
 roomCodeInput.addEventListener('input', () => {
   roomCodeInput.value = roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
 });
+
+const inviteCode = new URLSearchParams(window.location.search).get('room');
+if (inviteCode) {
+  const normalizedCode = inviteCode.trim().toUpperCase();
+  if (/^[A-Z0-9]{4}$/.test(normalizedCode)) {
+    roomCodeInput.value = normalizedCode;
+    networkStatus.textContent = '招待リンクを読み込みました。キャラクターを選んで「参加」を押してください';
+  } else {
+    networkStatus.textContent = '招待リンクの部屋コードが正しくありません';
+  }
+}
 
 updateSelectionInfo();
 player = createPlayer();

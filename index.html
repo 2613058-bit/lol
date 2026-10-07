@@ -16,8 +16,20 @@
         <div class="hud-panel">
           <div><span>Score</span><strong id="scoreValue">0</strong></div>
           <div><span>Enemies</span><strong id="enemyValue">13</strong></div>
-          <div><span>HP</span><strong id="hpValue">100</strong></div>
-          <div><span>Opponent</span><strong id="opponentHpValue">-</strong></div>
+          <div class="health-stat">
+            <span>HP</span>
+            <strong id="hpValue">100</strong>
+            <div class="health-bar" role="progressbar" aria-label="自分の体力" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+              <div id="hpBarFill" class="health-bar-fill"></div>
+            </div>
+          </div>
+          <div class="health-stat">
+            <span>Opponent</span>
+            <strong id="opponentHpValue">-</strong>
+            <div class="health-bar" role="progressbar" aria-label="相手の体力" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="opponentHpBarFill" class="health-bar-fill"></div>
+            </div>
+          </div>
           <div><span>XP</span><strong id="xpValue">0/45</strong></div>
           <div><span>Skill</span><strong id="skillValue">Pulse Burst</strong></div>
           <div><span>Item</span><strong id="itemValue">None</strong></div>
@@ -62,6 +74,10 @@
               <input id="roomCodeInput" type="text" maxlength="4" autocomplete="off" placeholder="部屋コード" aria-label="部屋コード" />
               <button id="createRoomBtn" class="secondary-btn" type="button">部屋を作る</button>
               <button id="joinRoomBtn" class="secondary-btn" type="button">参加</button>
+            </div>
+            <div id="roomInvite" class="invite-controls" hidden>
+              <input id="roomLinkInput" type="text" readonly aria-label="対戦相手への招待リンク" />
+              <button id="copyRoomLinkBtn" class="secondary-btn" type="button">リンクをコピー</button>
             </div>
             <p id="networkStatus" role="status">部屋を作成するか、相手のコードを入力</p>
           </section>

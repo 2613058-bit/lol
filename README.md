@@ -11,12 +11,14 @@ Features:
 - collectible gems and score system
 - finite enemy waves; defeat every enemy and the boss to win
 - 1v1 online matches with room codes
+- clear health bars and grass that hides players from their opponent in online matches
+- larger scrolling arena with camera tracking
 
 Run locally:
 
 npm install
 npm start
 
-Open http://localhost:8080 in the browser. Create a room and share its four-character code. The other player opens the same address and joins with that code.
+Open http://localhost:8080 in the browser. Create a room and copy the invitation link to share it. The other player opens the link, chooses a character, and selects Join.
 
-For players on another network, deploy the app to a host that allows WebSocket connections and share its public URL. Keep port 8080 reachable when hosting the server directly.
+For players on another network, deploy the app to a host that allows WebSocket connections and share the invitation link. Keep port 8080 reachable when hosting the server directly.

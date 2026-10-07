@@ -5,14 +5,26 @@ const { randomUUID } = require('crypto');
 const { WebSocketServer, WebSocket } = require('ws');
 
 const PORT = Number(process.env.PORT) || 8080;
-const ARENA = { width: 960, height: 540 };
+const ARENA = { width: 1440, height: 810 };
 const OBSTACLES = [
-  { x: 210, y: 180, w: 128, h: 32 },
-  { x: 630, y: 120, w: 132, h: 32 },
-  { x: 360, y: 302, w: 168, h: 34 },
-  { x: 122, y: 368, w: 90, h: 96 },
-  { x: 744, y: 354, w: 92, h: 102 },
-  { x: 500, y: 160, w: 38, h: 160 },
+  { x: 315, y: 270, w: 192, h: 48 },
+  { x: 945, y: 180, w: 198, h: 48 },
+  { x: 540, y: 453, w: 252, h: 51 },
+  { x: 183, y: 552, w: 135, h: 144 },
+  { x: 1116, y: 531, w: 138, h: 153 },
+  { x: 750, y: 240, w: 57, h: 240 },
+  { x: 1110, y: 90, w: 180, h: 42 },
+  { x: 420, y: 705, w: 165, h: 42 },
+  { x: 1320, y: 360, w: 45, h: 180 },
+];
+const GRASS_PATCHES = [
+  { x: 72, y: 93, w: 234, h: 168 },
+  { x: 585, y: 78, w: 267, h: 147 },
+  { x: 1185, y: 210, w: 189, h: 177 },
+  { x: 405, y: 603, w: 270, h: 141 },
+  { x: 960, y: 615, w: 240, h: 141 },
+  { x: 60, y: 270, w: 210, h: 100 },
+  { x: 840, y: 540, w: 180, h: 120 },
 ];
 const CHARACTERS = {
   nova: { hp: 100, speed: 255, damage: 16, fireRate: 0.18, color: '#7ae0ff', skill: 'burst' },
@@ -41,7 +53,7 @@ function createPlayer(socket, character, index) {
     id: randomUUID(),
     socket,
     character: CHARACTERS[character] ? character : 'nova',
-    x: index === 0 ? 180 : 780,
+    x: index === 0 ? 180 : ARENA.width - 180,
     y: ARENA.height / 2,
     angle: index === 0 ? 0 : Math.PI,
     hp: config.hp,
@@ -55,32 +67,25 @@ function createPlayer(socket, character, index) {
     skillCooldown: 0,
     barrierTimer: 0,
     invuln: 0,
+    hidden: false,
     input: { x: 0, y: 0, aim: 0, shooting: false, skill: false },
   };
 }
 
-function publicPlayer(player) {
+function publicPlayer(player, viewerId) {
   return {
     id: player.id,
     character: player.character,
-    x: player.x,
-    y: player.y,
+    x: player.hidden && player.id !== viewerId ? null : player.x,
+    y: player.hidden && player.id !== viewerId ? null : player.y,
     angle: player.angle,
     hp: player.hp,
     maxHp: player.maxHp,
     color: player.color,
     barrierTimer: player.barrierTimer,
     skillCooldown: player.skillCooldown,
+    hidden: player.hidden,
   };
-}
-
-function broadcast(room, data) {
-  const payload = JSON.stringify(data);
-  for (const player of room.players) {
-    if (player.socket.readyState === WebSocket.OPEN) {
-      player.socket.send(payload);
-    }
-  }
 }
 
 function joinRoom(socket, request) {
@@ -105,12 +110,14 @@ function joinRoom(socket, request) {
   socket.room = room;
   socket.player = player;
   room.started = true;
-  broadcast(room, {
-    type: 'started',
-    code: room.code,
-    playerId: null,
-    players: room.players.map(publicPlayer),
-  });
+  for (const viewer of room.players) {
+    send(viewer.socket, {
+      type: 'started',
+      code: room.code,
+      playerId: null,
+      players: room.players.map((participant) => publicPlayer(participant, viewer.id)),
+    });
+  }
   for (const participant of room.players) {
     send(participant.socket, { type: 'identity', playerId: participant.id });
   }
@@ -139,6 +146,15 @@ function circleHitsRect(x, y, radius, rect) {
 
 function collides(x, y, radius) {
   return OBSTACLES.some((obstacle) => circleHitsRect(x, y, radius, obstacle));
+}
+
+function isInsideGrass(x, y, radius = 18) {
+  return GRASS_PATCHES.some((patch) => (
+    x - radius >= patch.x &&
+    x + radius <= patch.x + patch.w &&
+    y - radius >= patch.y &&
+    y + radius <= patch.y + patch.h
+  ));
 }
 
 function clamp(value, min, max) {
@@ -192,6 +208,7 @@ function updateRoom(room, dt) {
     const nextY = clamp(player.y + moveY, 18, ARENA.height - 18);
     if (!collides(nextX, player.y, 18)) player.x = nextX;
     if (!collides(player.x, nextY, 18)) player.y = nextY;
+    player.hidden = isInsideGrass(player.x, player.y);
     player.angle = aim;
     player.fireCooldown = Math.max(0, player.fireCooldown - dt);
     player.skillCooldown = Math.max(0, player.skillCooldown - dt);
@@ -223,12 +240,14 @@ function updateRoom(room, dt) {
     return false;
   });
 
-  broadcast(room, {
-    type: 'state',
-    players: room.players.map(publicPlayer),
-    bullets: room.bullets.map(({ owner, x, y, dx, dy, radius, color }) => ({ owner, x, y, dx, dy, radius, color })),
-    winner: room.winner,
-  });
+  for (const viewer of room.players) {
+    send(viewer.socket, {
+      type: 'state',
+      players: room.players.map((player) => publicPlayer(player, viewer.id)),
+      bullets: room.bullets.map(({ owner, x, y, dx, dy, radius, color }) => ({ owner, x, y, dx, dy, radius, color })),
+      winner: room.winner,
+    });
+  }
 }
 
 const staticFiles = {
