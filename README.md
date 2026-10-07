@@ -13,6 +13,7 @@ Features:
 - 1v1 online matches with room codes
 - clear health bars and grass that hides players from their opponent in online matches
 - larger scrolling arena with camera tracking
+- smooth camera movement and interpolated online player movement
 
 Run locally:
 

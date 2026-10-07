@@ -94,6 +94,7 @@ const arena = {
 
 const pointer = { x: canvas.width / 2, y: canvas.height / 2, down: false };
 const camera = { x: 0, y: 0 };
+const remotePlayerSnapshots = new Map();
 const keys = {};
 const lootTable = ['Medkit', 'Overcharge', 'Shield', 'Momentum'];
 const regularEnemyLimit = 12;
@@ -112,6 +113,7 @@ const network = {
   players: [],
   bullets: [],
   started: false,
+  positionInitialized: false,
   pendingSkill: false,
   inputTimer: 0,
 };
@@ -120,10 +122,13 @@ function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
 }
 
-function updateCamera() {
+function updateCamera(dt) {
   if (!player) return;
-  camera.x = clamp(player.x - canvas.width / 2, 0, arena.width - canvas.width);
-  camera.y = clamp(player.y - canvas.height / 2, 0, arena.height - canvas.height);
+  const targetX = clamp(player.x - canvas.width / 2, 0, arena.width - canvas.width);
+  const targetY = clamp(player.y - canvas.height / 2, 0, arena.height - canvas.height);
+  const smoothing = 1 - Math.exp(-12 * dt);
+  camera.x += (targetX - camera.x) * smoothing;
+  camera.y += (targetY - camera.y) * smoothing;
 }
 
 function rand(min, max) {
@@ -163,8 +168,10 @@ function connectToRoom(mode) {
 
 function startOnlineMatch() {
   network.started = true;
+  network.positionInitialized = false;
   network.inputTimer = 0;
   network.pendingSkill = false;
+  remotePlayerSnapshots.clear();
   arena.score = 0;
   arena.state = 'playing';
   player = createPlayer();
@@ -187,14 +194,33 @@ function applyNetworkState(message) {
   const self = network.players.find((participant) => participant.id === network.playerId);
   const opponent = network.players.find((participant) => participant.id !== network.playerId);
   if (self) {
-    player.x = self.x;
-    player.y = self.y;
+    if (!network.positionInitialized) {
+      player.x = self.x;
+      player.y = self.y;
+      network.positionInitialized = true;
+    } else {
+      player.x += (self.x - player.x) * 0.2;
+      player.y += (self.y - player.y) * 0.2;
+    }
     player.angle = self.angle;
     player.hp = self.hp;
     player.maxHp = self.maxHp;
     player.hidden = self.hidden;
     player.barrierTimer = self.barrierTimer;
     player.skillCooldown = self.skillCooldown;
+  }
+  if (opponent && Number.isFinite(opponent.x) && Number.isFinite(opponent.y)) {
+    const snapshots = remotePlayerSnapshots.get(opponent.id) || [];
+    snapshots.push({
+      time: performance.now(),
+      x: opponent.x,
+      y: opponent.y,
+      angle: opponent.angle,
+    });
+    if (snapshots.length > 4) snapshots.shift();
+    remotePlayerSnapshots.set(opponent.id, snapshots);
+  } else if (opponent) {
+    remotePlayerSnapshots.delete(opponent.id);
   }
   opponentHpValue.textContent = opponent ? String(Math.ceil(opponent.hp)) : '-';
 
@@ -639,6 +665,8 @@ function resetGame() {
   if (network.socket) network.socket.close();
   network.socket = null;
   network.started = false;
+  network.positionInitialized = false;
+  remotePlayerSnapshots.clear();
   network.playerId = null;
   network.code = '';
   network.players = [];
@@ -1133,8 +1161,29 @@ function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
     ctx.fillRect(enemy.x - enemy.radius, enemy.y - enemy.radius - 10, (enemy.hp / enemy.maxHp) * enemy.radius * 2, 5);
   }
 
+  const renderTime = performance.now() - 100;
   for (const opponent of network.players) {
-    if (opponent.id !== network.playerId && !opponent.hidden) drawPlayer(opponent);
+    if (opponent.id === network.playerId || opponent.hidden) continue;
+    const snapshots = remotePlayerSnapshots.get(opponent.id);
+    if (!snapshots || snapshots.length < 2) {
+      drawPlayer(opponent);
+      continue;
+    }
+
+    while (snapshots.length > 2 && snapshots[1].time < renderTime) snapshots.shift();
+    const previous = snapshots[0];
+    const next = snapshots[1];
+    const progress = clamp((renderTime - previous.time) / (next.time - previous.time), 0, 1);
+    const angleDelta = Math.atan2(
+      Math.sin(next.angle - previous.angle),
+      Math.cos(next.angle - previous.angle)
+    );
+    drawPlayer({
+      ...opponent,
+      x: previous.x + (next.x - previous.x) * progress,
+      y: previous.y + (next.y - previous.y) * progress,
+      angle: previous.angle + angleDelta * progress,
+    });
   }
 
   const visibleBullets = network.started ? network.bullets : bullets;
@@ -1189,9 +1238,8 @@ function gameLoop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000 || 0.016, 0.032);
   lastTime = timestamp;
 
-  updateCamera();
   updateGame(dt);
-  updateCamera();
+  updateCamera(dt);
   drawArena();
   requestAnimationFrame(gameLoop);
 }
@@ -1210,6 +1258,8 @@ window.addEventListener('keydown', (event) => {
       if (network.socket) network.socket.close();
       network.socket = null;
       network.started = false;
+      network.positionInitialized = false;
+      remotePlayerSnapshots.clear();
       network.playerId = null;
       network.code = '';
       network.players = [];
