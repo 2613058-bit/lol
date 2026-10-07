@@ -88,12 +88,15 @@ const arena = {
   state: 'selection',
   spawnTimer: 0,
   regularEnemiesSpawned: 0,
-  shake: 0,
   bossSpawned: false,
 };
 
 const pointer = { x: canvas.width / 2, y: canvas.height / 2, down: false };
 const camera = { x: 0, y: 0 };
+const mapCanvas = document.createElement('canvas');
+mapCanvas.width = arena.width;
+mapCanvas.height = arena.height;
+const mapContext = mapCanvas.getContext('2d');
 const remotePlayerSnapshots = new Map();
 const keys = {};
 const lootTable = ['Medkit', 'Overcharge', 'Shield', 'Momentum'];
@@ -261,7 +264,7 @@ function handleNetworkMessage(message) {
 
 function sendNetworkInput(dt) {
   network.inputTimer += dt;
-  if (network.inputTimer < 0.05) return;
+  if (network.inputTimer < 1 / 30) return;
   network.inputTimer = 0;
   if (!network.socket || network.socket.readyState !== WebSocket.OPEN || !network.playerId) return;
 
@@ -495,7 +498,6 @@ function triggerPlayerSkill() {
   }
 
   player.skillCooldown = player.skillMaxCooldown;
-  arena.shake = 1.2;
 
   if (network.started) {
     network.pendingSkill = true;
@@ -676,7 +678,6 @@ function resetGame() {
   arena.spawnTimer = 0;
   arena.regularEnemiesSpawned = 0;
   arena.bossSpawned = false;
-  arena.shake = 0;
   player = createPlayer();
   enemies = [];
   bullets = [];
@@ -914,7 +915,6 @@ function updateGame(dt) {
   }
 
   arena.spawnTimer += dt;
-  arena.shake = Math.max(0, arena.shake - dt * 2.5);
 
   if (arena.regularEnemiesSpawned < regularEnemyLimit && arena.spawnTimer > 1.35) {
     spawnEnemy();
@@ -949,48 +949,71 @@ function updateGame(dt) {
   updateHud();
 }
 
-function drawObstacles() {
-  ctx.fillStyle = '#3f4968';
-  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-  ctx.lineWidth = 2;
+function drawObstacles(targetContext = ctx) {
+  targetContext.fillStyle = '#3f4968';
+  targetContext.strokeStyle = 'rgba(255,255,255,0.16)';
+  targetContext.lineWidth = 2;
 
   obstacleLayout.forEach((obstacle) => {
-    ctx.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
-    ctx.strokeRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+    targetContext.fillRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
+    targetContext.strokeRect(obstacle.x, obstacle.y, obstacle.w, obstacle.h);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    targetContext.strokeStyle = 'rgba(255,255,255,0.12)';
     for (let x = obstacle.x + 8; x < obstacle.x + obstacle.w - 4; x += 12) {
-      ctx.beginPath();
-      ctx.moveTo(x, obstacle.y + 4);
-      ctx.lineTo(x, obstacle.y + obstacle.h - 4);
-      ctx.stroke();
+      targetContext.beginPath();
+      targetContext.moveTo(x, obstacle.y + 4);
+      targetContext.lineTo(x, obstacle.y + obstacle.h - 4);
+      targetContext.stroke();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    targetContext.strokeStyle = 'rgba(255,255,255,0.16)';
   });
 }
 
-function drawGrassPatches() {
+function drawGrassPatches(targetContext = ctx) {
   for (const patch of grassPatches) {
-    ctx.fillStyle = 'rgba(54, 123, 73, 0.76)';
-    ctx.fillRect(patch.x, patch.y, patch.w, patch.h);
-    ctx.strokeStyle = 'rgba(143, 213, 112, 0.32)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(patch.x + 1, patch.y + 1, patch.w - 2, patch.h - 2);
+    targetContext.fillStyle = 'rgba(54, 123, 73, 0.76)';
+    targetContext.fillRect(patch.x, patch.y, patch.w, patch.h);
+    targetContext.strokeStyle = 'rgba(143, 213, 112, 0.32)';
+    targetContext.lineWidth = 2;
+    targetContext.strokeRect(patch.x + 1, patch.y + 1, patch.w - 2, patch.h - 2);
 
     for (let x = patch.x + 8; x < patch.x + patch.w - 4; x += 18) {
       for (let y = patch.y + 8; y < patch.y + patch.h - 4; y += 18) {
-        ctx.beginPath();
-        ctx.strokeStyle = (x + y) % 3 === 0 ? '#8acb68' : '#549b56';
-        ctx.lineWidth = 2;
-        ctx.moveTo(x, y + 5);
-        ctx.lineTo(x - 3, y - 3);
-        ctx.moveTo(x, y + 5);
-        ctx.lineTo(x + 4, y - 4);
-        ctx.stroke();
+        targetContext.beginPath();
+        targetContext.strokeStyle = (x + y) % 3 === 0 ? '#8acb68' : '#549b56';
+        targetContext.lineWidth = 2;
+        targetContext.moveTo(x, y + 5);
+        targetContext.lineTo(x - 3, y - 3);
+        targetContext.moveTo(x, y + 5);
+        targetContext.lineTo(x + 4, y - 4);
+        targetContext.stroke();
       }
     }
   }
 }
+
+function drawMapBackground() {
+  mapContext.fillStyle = '#111a2b';
+  mapContext.fillRect(0, 0, arena.width, arena.height);
+
+  const tiles = 24;
+  for (let x = 0; x < arena.width; x += tiles) {
+    for (let y = 0; y < arena.height; y += tiles) {
+      mapContext.fillStyle = (x + y) % (tiles * 2) === 0
+        ? 'rgba(255,255,255,0.04)'
+        : 'rgba(255,255,255,0.02)';
+      mapContext.fillRect(x, y, tiles, tiles);
+    }
+  }
+
+  mapContext.strokeStyle = 'rgba(120, 170, 255, 0.28)';
+  mapContext.lineWidth = 2;
+  mapContext.strokeRect(12, 12, arena.width - 24, arena.height - 24);
+  drawObstacles(mapContext);
+  drawGrassPatches(mapContext);
+}
+
+drawMapBackground();
 
 function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
     ctx.beginPath();
@@ -1107,28 +1130,21 @@ function drawPolygon(points, fill, stroke = '#d7f1ff', lineWidth = 0.06) {
   function drawArena() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const shakeX = arena.shake > 0 ? rand(-arena.shake * 10, arena.shake * 10) : 0;
-  const shakeY = arena.shake > 0 ? rand(-arena.shake * 10, arena.shake * 10) : 0;
   ctx.save();
-  ctx.translate(shakeX, shakeY);
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
 
-  const tiles = 24;
-  const firstTileX = Math.floor(camera.x / tiles) * tiles;
-  const firstTileY = Math.floor(camera.y / tiles) * tiles;
-  for (let x = firstTileX; x < camera.x + canvas.width + tiles; x += tiles) {
-    for (let y = firstTileY; y < camera.y + canvas.height + tiles; y += tiles) {
-      ctx.fillStyle = (x + y) % (tiles * 2) === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)';
-      ctx.fillRect(x, y, tiles, tiles);
-    }
-  }
-
-  ctx.strokeStyle = 'rgba(120, 170, 255, 0.28)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(12, 12, arena.width - 24, arena.height - 24);
-  drawObstacles();
-  drawGrassPatches();
+  ctx.drawImage(
+    mapCanvas,
+    camera.x,
+    camera.y,
+    canvas.width,
+    canvas.height,
+    camera.x,
+    camera.y,
+    canvas.width,
+    canvas.height
+  );
 
   for (const gem of gems) {
     const pulse = 1 + Math.sin(gem.pulse) * 0.1;

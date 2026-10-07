@@ -321,7 +321,7 @@ setInterval(() => {
     room.lastTick = now;
     updateRoom(room, dt);
   }
-}, 50);
+}, 1000 / 30);
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Brawl Rush multiplayer server listening on port ${PORT}`);
