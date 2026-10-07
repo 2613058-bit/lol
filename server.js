@@ -244,7 +244,12 @@ function updateRoom(room, dt) {
     send(viewer.socket, {
       type: 'state',
       players: room.players.map((player) => publicPlayer(player, viewer.id)),
-      bullets: room.bullets.map(({ owner, x, y, dx, dy, radius, color }) => ({ owner, x, y, dx, dy, radius, color })),
+      bullets: room.bullets
+        .filter((bullet) => {
+          const owner = room.players.find((player) => player.id === bullet.owner);
+          return !owner?.hidden || owner.id === viewer.id;
+        })
+        .map(({ owner, x, y, dx, dy, radius, color }) => ({ owner, x, y, dx, dy, radius, color })),
       winner: room.winner,
     });
   }
