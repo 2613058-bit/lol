@@ -1,0 +1,336 @@
+:root {
+  --bg-1: #0b1022;
+  --bg-2: #121b30;
+  --panel: rgba(12, 18, 35, 0.72);
+  --panel-border: rgba(138, 171, 255, 0.28);
+  --text: #edf5ff;
+  --muted: #aeccff;
+  --accent: #72e1ff;
+  --accent-2: #ffd86b;
+  --danger: #ff5e7e;
+  --success: #65f0a7;
+  --shadow: rgba(0, 0, 0, 0.38);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(111, 157, 255, 0.25), transparent 32%),
+    linear-gradient(160deg, var(--bg-2) 0%, var(--bg-1) 44%, #070b16 100%);
+  color: var(--text);
+}
+
+body {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.page-shell {
+  width: min(980px, calc(100vw - 28px));
+  position: relative;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 14px 10px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.74rem;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  letter-spacing: 0.02em;
+}
+
+.hud-panel {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: rgba(4, 8, 19, 0.46);
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 12px 25px var(--shadow);
+}
+
+.hud-panel > div {
+  min-width: 92px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+}
+
+.hud-panel strong {
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.selection-overlay {
+  position: absolute;
+  inset: 72px 0 0 0;
+  display: none;
+  place-items: center;
+  z-index: 10;
+  background: rgba(3, 6, 16, 0.66);
+  backdrop-filter: blur(6px);
+}
+
+.selection-overlay.visible {
+  display: grid;
+}
+
+.selection-card {
+  width: min(640px, calc(100vw - 40px));
+  background: rgba(12, 19, 33, 0.9);
+  border: 1px solid rgba(136, 170, 255, 0.28);
+  border-radius: 22px;
+  padding: 22px 20px 18px;
+  box-shadow: 0 24px 46px rgba(0, 0, 0, 0.34);
+}
+
+.selection-label {
+  margin: 0 0 8px;
+  color: var(--accent);
+  letter-spacing: 0.22em;
+  font-size: 0.72rem;
+}
+
+.selection-card h2 {
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 4vw, 2.6rem);
+}
+
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.character-option {
+  background: linear-gradient(180deg, rgba(20, 29, 48, 0.96), rgba(8, 12, 24, 0.96));
+  border: 1px solid rgba(124, 169, 255, 0.24);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: 180ms ease;
+}
+
+.character-option:hover,
+.character-option.active {
+  transform: translateY(-2px);
+  border-color: rgba(114, 225, 255, 0.5);
+  box-shadow: 0 10px 22px rgba(79, 140, 255, 0.24);
+}
+
+.char-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.char-skill {
+  color: var(--muted);
+}
+
+.selection-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: rgba(14, 24, 38, 0.88);
+  border: 1px solid rgba(138, 171, 255, 0.18);
+}
+
+.selection-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.selection-meta strong {
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.primary-btn {
+  margin-top: 18px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #5aa3ff);
+  color: #061120;
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 12px 18px;
+  cursor: pointer;
+  box-shadow: 0 12px 22px rgba(90, 163, 255, 0.45);
+}
+
+.online-panel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(138, 171, 255, 0.2);
+}
+
+.online-panel h3 {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.online-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+}
+
+.online-controls input {
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(4, 8, 19, 0.72);
+  color: var(--text);
+  font: inherit;
+  text-transform: uppercase;
+}
+
+.online-controls input::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.secondary-btn {
+  border: 1px solid rgba(114, 225, 255, 0.42);
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: rgba(25, 50, 70, 0.76);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.secondary-btn:hover {
+  border-color: var(--accent);
+  background: rgba(40, 77, 100, 0.88);
+}
+
+#networkStatus {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.arena-wrap {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 22px 42px rgba(0, 0, 0, 0.38);
+}
+
+@media (max-width: 720px) {
+  .character-grid,
+  .selection-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-panel {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .online-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .online-controls input {
+    grid-column: 1 / -1;
+  }
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: linear-gradient(180deg, rgba(27, 34, 48, 0.9), rgba(12, 16, 28, 0.98));
+}
+
+.message-banner {
+  position: absolute;
+  inset: auto 0 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: 180ms ease;
+  pointer-events: none;
+}
+
+.message-banner.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.message-banner h2,
+.message-banner p {
+  margin: 0;
+  text-align: center;
+}
+
+.message-banner h2 {
+  font-size: clamp(2rem, 4vw, 3rem);
+  text-shadow: 0 5px 18px rgba(0, 0, 0, 0.3);
+}
+
+.message-banner p {
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+@media (max-width: 720px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hud-panel {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

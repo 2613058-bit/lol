@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Brawl Rush</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ARENA BRAWLER</p>
+          <h1>Brawl Rush</h1>
+        </div>
+        <div class="hud-panel">
+          <div><span>Score</span><strong id="scoreValue">0</strong></div>
+          <div><span>Enemies</span><strong id="enemyValue">13</strong></div>
+          <div><span>HP</span><strong id="hpValue">100</strong></div>
+          <div><span>Opponent</span><strong id="opponentHpValue">-</strong></div>
+          <div><span>XP</span><strong id="xpValue">0/45</strong></div>
+          <div><span>Skill</span><strong id="skillValue">Pulse Burst</strong></div>
+          <div><span>Item</span><strong id="itemValue">None</strong></div>
+        </div>
+      </header>
+
+      <div id="selectionOverlay" class="selection-overlay visible">
+        <div class="selection-card">
+          <p class="selection-label">SELECT BRAWLER</p>
+          <h2>戦う仲間を選ぼう</h2>
+          <div class="character-grid">
+            <button class="character-option active" data-character="nova" type="button">
+              <span class="char-name">Nova</span>
+              <span class="char-skill">Pulse Burst</span>
+            </button>
+            <button class="character-option" data-character="blaze" type="button">
+              <span class="char-name">Blaze</span>
+              <span class="char-skill">Flame Rush</span>
+            </button>
+            <button class="character-option" data-character="titan" type="button">
+              <span class="char-name">Titan</span>
+              <span class="char-skill">Barrier</span>
+            </button>
+          </div>
+          <div class="selection-meta">
+            <div>
+              <span>移動</span>
+              <strong id="selectedSpeed">255</strong>
+            </div>
+            <div>
+              <span>体力</span>
+              <strong id="selectedHp">100</strong>
+            </div>
+            <div>
+              <span>スキル</span>
+              <strong id="selectedSkillName">Pulse Burst</strong>
+            </div>
+          </div>
+          <section class="online-panel" aria-label="オンライン対戦">
+            <h3>1対1 オンライン</h3>
+            <div class="online-controls">
+              <input id="roomCodeInput" type="text" maxlength="4" autocomplete="off" placeholder="部屋コード" aria-label="部屋コード" />
+              <button id="createRoomBtn" class="secondary-btn" type="button">部屋を作る</button>
+              <button id="joinRoomBtn" class="secondary-btn" type="button">参加</button>
+            </div>
+            <p id="networkStatus" role="status">部屋を作成するか、相手のコードを入力</p>
+          </section>
+          <button id="startMatchBtn" class="primary-btn" type="button">試合開始</button>
+        </div>
+      </div>
+
+      <main class="arena-wrap">
+        <canvas id="gameCanvas" width="960" height="540" aria-label="Brawl Rush game board"></canvas>
+        <div id="messageBanner" class="message-banner visible">
+          <h2>Battle starts!</h2>
+          <p>WASDで移動、マウスで照準、クリックで攻撃</p>
+        </div>
+      </main>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
